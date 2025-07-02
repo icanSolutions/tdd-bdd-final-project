@@ -27,7 +27,7 @@ import os
 import logging
 import unittest
 from decimal import Decimal
-from service.models import Product, Category, db
+from service.models import Product, Category, db, DataValidationError
 from service import app
 from tests.factories import ProductFactory
 
@@ -104,3 +104,154 @@ class TestProductModel(unittest.TestCase):
     #
     # ADD YOUR TEST CASES HERE
     #
+    def test_read_a_product(self):
+        """It should test the representational str of the product object"""
+        prod = ProductFactory()
+        # logging(f"A Factirial Product was created: {prod}")
+        prod.id = None
+        prod.create()
+        self.assertFalse(prod.id == None)
+        prod_obj = Product.find(product_id=prod.id)
+        self.assertEqual(prod_obj.id, prod.id)
+        self.assertEqual(prod_obj.name, prod.name)
+        self.assertEqual(prod_obj.description, prod.description)
+        self.assertEqual(prod_obj.price, prod.price)
+        self.assertEqual(prod_obj.available, prod.available)
+        self.assertEqual(prod_obj.category, prod.category)
+        
+    def test_update_a_product(self):
+        """It shoud create a product, update it, and asssert the changes are correct & there is just one object"""
+        prod = ProductFactory()
+        # logging(f"A Factirial Product was created: {prod}")
+        prod.id = None
+        prod.create()
+        db_prod = Product.find(prod.id)
+        fake_prod = ProductFactory()
+        db_prod.id = fake_prod.id
+        db_prod.description = fake_prod.description
+        origin_id = db_prod.id
+        db_prod.update()
+        self.assertEqual(db_prod.id, prod.id)
+        self.assertEqual(db_prod.description, fake_prod.description)
+        products = Product.all()
+        self.assertEqual(len(products), 1)
+        self.assertEqual(products[0].id, origin_id)
+        self.assertEqual(products[0].description, db_prod.description)
+
+    def test_update_a_product_no_id(self):
+        """It will check a sad path for no id update"""
+        product = ProductFactory()
+        product.create()
+        products = Product.all()
+        # Verify there is a product
+        self.assertEqual(len(products), 1)
+        products[0].id = None
+        self.assertRaises(DataValidationError, products[0].update)
+
+
+    
+
+        
+        
+    def test_delete_a_product(self):
+        """It should create a product, delete it and check there is no objetcs"""
+        fact_prod = ProductFactory()
+        # logging(f"A Factorial product was create - {fact_prod}")
+        fact_prod.id = None
+        fact_prod.create()
+        products = Product.all()
+        self.assertEqual(len(products), 1)
+        prod = products[0] if products else self.assertTrue(products)
+        prod.delete()
+        products_after_delete = Product.all()
+        self.assertEqual(len(products_after_delete), 0)
+        
+        
+    def test_list_products(self):
+        """It should create products and list theme correctlly"""
+        self.assertEqual(Product.all(), [])
+        fact_prod = ProductFactory.build_batch(5)
+        for i in range(5):
+            fact_prod[i].id = None
+            fact_prod[i].create()    
+        # logging(f"A Factorial products was create - {fact_prod}")
+        self.assertEqual(len(Product.all()), 5)
+        
+        
+    def test_find_products_by_name(self):
+        """It should create products and find theme by name"""
+        self.assertEqual(Product.all(), [])
+        fact_prod = ProductFactory.build_batch(5)
+        fake_prod_1_name = fact_prod[0].name
+        num_of_name_fake_prod = len([prod for prod in fact_prod if prod.name == fake_prod_1_name])
+        for i in range(5):
+            fact_prod[i].id = None
+            fact_prod[i].create()    
+        # logging(f"A Factorial products was create - {fact_prod}")
+        self.assertEqual(len(Product.all()), 5)
+        products = Product.find_by_name(fake_prod_1_name)
+        self.assertEqual(len(list(products)), num_of_name_fake_prod)
+        for prod in products:
+            self.assertEqual(prod.name, fake_prod_1_name)
+            
+            
+    def test_find_products_by_availability(self):
+        """It should create products and find theme by availability"""
+        self.assertEqual(Product.all(), [])
+        fact_prod = ProductFactory.build_batch(5)
+        availability = fact_prod[0].available
+        num_availability = len([prod for prod in fact_prod if prod.available == availability])
+        for i in range(5):
+            fact_prod[i].id = None
+            fact_prod[i].create()    
+        # logging(f"A Factorial products was create - {fact_prod}")
+        self.assertEqual(len(list(Product.all())), 5)
+        products = Product.find_by_availability(availability)
+        self.assertEqual(len(list(products)), num_availability)
+        for prod in products:
+            self.assertEqual(prod.available, availability)
+            
+    
+    def test_find_products_by_category(self):
+        """It should create products and find theme by category"""
+        self.assertEqual(Product.all(), [])
+        fact_prod = ProductFactory.build_batch(5)
+        category = fact_prod[0].category
+        num_category = len([prod for prod in fact_prod if prod.category == category])
+        for i in range(5):
+            fact_prod[i].id = None
+            fact_prod[i].create()    
+        # logging(f"A Factorial products was create - {fact_prod}")
+        self.assertEqual(len(Product.all()), 5)
+        products = Product.find_by_category(category)
+        self.assertEqual(len(list(products)), num_category)
+        for prod in products:
+            self.assertEqual(prod.category, category)
+        
+
+    def test_deserialize_bad_available_type(self):
+        """A sad path to test a non boolean avaliable type"""
+        prod = ProductFactory()
+        prod.available = 1
+        prod.update()
+        prod_dict = prod.serialize()
+        p = ProductFactory()
+        self.assertRaises(DataValidationError, p.deserialize(prod_dict))
+
+    def test_find_products_by_price(self):
+        """It should create products and find theme by price"""
+        self.assertEqual(Product.all(), [])
+        fact_prod = ProductFactory.build_batch(5)
+        price = fact_prod[0].price
+        num_price = len([prod for prod in fact_prod if prod.price == price])
+        for i in range(5):
+            fact_prod[i].id = None
+            fact_prod[i].create()    
+        # logging(f"A Factorial products was create - {fact_prod}")
+        self.assertEqual(len(Product.all()), 5)
+        products = Product.find_by_price(price)
+        self.assertEqual(len(list(products)), num_price)
+        for prod in products:
+            self.assertEqual(prod.price, price)
+
+        

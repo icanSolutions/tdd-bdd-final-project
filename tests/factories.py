@@ -27,8 +27,12 @@ class ProductFactory(factory.Factory):
 
     class Meta:
         """Maps factory to data model"""
-
         model = Product
 
     id = factory.Sequence(lambda n: n)
    ## Add code to create Fake Products 
+    name = factory.Faker('name')
+    description = factory.Faker('paragraph')
+    price = FuzzyDecimal(0, 100)
+    available = FuzzyChoice(choices=[True, False])
+    category = FuzzyChoice(choices=[name for name in Category])

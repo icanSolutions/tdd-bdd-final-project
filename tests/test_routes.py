@@ -32,6 +32,7 @@ from service import app
 from service.common import status
 from service.models import db, init_db, Product
 from tests.factories import ProductFactory
+from flask import jsonify
 
 # Disable all but critical errors during normal test run
 # uncomment for debugging failing tests
@@ -107,6 +108,110 @@ class TestProductRoutes(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
         self.assertEqual(data['message'], 'OK')
+
+    def test_get_product(self):
+        """It will create a product, retrieve it from the api endpoint and verify tuts the same by name"""
+        prod = self._create_products()[0]
+        response = self.client.get(f"{BASE_URL}/{prod.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(data['name'], prod.name)
+
+    def test_get_product_no_product(self):
+        """It will test a get_product sad path that there is no such product"""
+        prod = self._create_products()[0]
+        self.assertRaises(404, self.client.get(f"{BASE_URL}/{prod.id+1}"))
+
+    def test_update_product(self):
+        """It shoud create a product, update it and make sure the updated retrieved is the correct"""
+        prod = self._create_products()[0]
+        dict_product = prod.serialize()
+        dict_product['name'] = "Mor_test"
+        res = self.client.put(f"{BASE_URL}/{prod.id}", json=dict_product)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.get_json()
+        self.assertEqual(data['name'], dict_product['name'])
+    
+    def test_update_product_no_product(self):
+        """It will test a update_product sad path that there is no such product"""
+        response = self.client.put(f"{BASE_URL}/{0}", json={'name': 'there is no data'})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_product(self):
+        """It shoud create a product, delete it and make sure it been deleted"""
+        prod = self._create_products()[0]
+        res = self.client.delete(f"{BASE_URL}/{prod.id}")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        get_prod = Product.find(prod.id)
+        self.assertEqual(get_prod, None)
+
+    def test_DELETE_product_no_product(self):
+        """It will test a delete_product sad path that there is no such product"""
+        response = self.client.delete(f"{BASE_URL}/{0}")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+    def test_list_all_product(self):
+        """It shoud create 5 products, and list theme correctlly"""
+        prods = self._create_products(5)
+        prod_name = prods[0].name
+        prod_description = prods[0].description
+        res = self.client.get(BASE_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.get_json()
+        self.assertEqual(len(data), 5)
+        res_prod = data[0]
+        self.assertEqual(res_prod["name"], prod_name)
+        self.assertEqual(res_prod["description"], prod_description)
+
+    def test_list_all_product_no_product(self):
+        """It will test a list_all sad path that there is no products"""
+        prods = Product.all()
+        for prod in prods:
+            prod.delete()
+        res = self.client.get(BASE_URL)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_list_by_name(self):
+        """It shoud create 5 products, and list theme correctlly by name"""
+        prods = self._create_products(count=5)
+        expected_value = [prod for prod in prods if prod.name == prods[0].name]
+        prod_description = prods[0].description
+        res = self.client.get(BASE_URL, query_string=f"name={prods[0].name}")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.get_json()
+        logging.debug(f"Created objects Data: %s", data)
+        self.assertEqual(len(data), len(expected_value))
+        res_prod = data[0]
+        self.assertEqual(res_prod["name"], prods[0].name)
+        self.assertEqual(res_prod["description"], prod_description)
+
+    def test_list_by_category(self):
+        """It should test if it find the right product by category"""
+        prods = self._create_products(count=5)
+        expected_value = [prod for prod in prods if prod.category == prods[0].category]
+        prod_description = prods[0].description
+        res = self.client.get(BASE_URL, query_string=f"category={prods[0].category.name}")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.get_json()
+        self.assertEqual(len(data), len(expected_value))
+        res_prod = data[0]
+        self.assertEqual(res_prod["category"], prods[0].category.name)
+        self.assertEqual(res_prod["description"], prod_description)
+
+    def test_by_availability(self):
+        """It should test if it find the right product by availability """
+        prods = self._create_products(count=5)
+        expected_value = [prod for prod in prods if prod.available == prods[0].available]
+        prod_description = prods[0].description
+        res = self.client.get(BASE_URL, query_string=f"availability={prods[0].available}")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.get_json()
+        self.assertEqual(len(data), len(expected_value))
+        res_prod = data[0]
+        self.assertEqual(res_prod["avaliable"], prods[0].available)
+        self.assertEqual(res_prod["description"], prod_description)
+
 
     # ----------------------------------------------------------
     # TEST CREATE

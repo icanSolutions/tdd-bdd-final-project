@@ -38,6 +38,9 @@ def step_impl(context):
     #
     rest_endpoint = f"{context.base_url}/products"
     context.resp = requests.get(rest_endpoint)
+    print("STATUS CODE:", context.resp.status_code)
+    print("RESPONSE BODY:", context.resp.text)
+    print("ENDPOINT:", rest_endpoint)
     assert(context.resp.status_code == HTTP_200_OK)
     for product in context.resp.json():
         context.resp = requests.delete(f"{rest_endpoint}/{product['id']}")
@@ -47,6 +50,13 @@ def step_impl(context):
     # load the database with new products
     #
     for row in context.table:
-        #
-        # ADD YOUR CODE HERE TO CREATE PRODUCTS VIA THE REST API
-        #
+        payload = {
+            "name": row['name'],
+            "description": row['description'],
+            "price": row['price'],
+            "available": row['availability'] in ['True', 'False', '1'],
+            "category": row['category'],
+        }
+        
+        context.resp = request.post(rest_endpoint, json=payload)
+        assert context.resp.status_code == HTTP_201_CREATED
